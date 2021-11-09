@@ -234,7 +234,7 @@ if test == False:
 		timeout = {
 			"attemptDurationSeconds": 21600
 		}
-	job_id = response['jobId']	
-
+	
 	)
+	job_id = response['jobId']	
 	note = add_notification(note, job_id, jobName, events, sns)
