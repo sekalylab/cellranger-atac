@@ -15,7 +15,7 @@ import re
 
 
 def new_notification(job_id,jobName, date_time, events, sns, email):
-	event_pattern = """{\"source\":[\"aws.batch\"],
+	event_pattern = "{\"source\":[\"aws.batch\"]," \
 						\"detail-type\":[\"Batch Job State Change\"],
 						\"detail\":{\"jobId\":[\"%s\"],
 									\"status\":[\"FAILED\",\"SUCCEEDED\"]}}""" % job_id
@@ -63,13 +63,13 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 		Protocol = "email",
 		Endpoint = email )
 
-	return({"rule":notification_rule, "topicArn":topicArn, "topic":topic, "AttributeValue":attribute_value, "policy_number": 1, "date_time":date_time })
+	return({"rule":notification_rule, "topicArn":topicArn, "topic":topic, "AttributeValue":attributeValue, "policy_number": 1, "date_time":date_time })
 
 
 def add_notification(notification, job_id,jobName, events, sns):
-	# event_pattern = """{\"source\":[\"aws.batch\"],
-	# 					\"detail-type\":[\"Batch Job State Change\"],
-	# 					\"detail\":{\"jobId\":[\"%s\"],\"status\":[\"FAILED\",\"SUCCEEDED\"]}}""" % job_id
+	event_pattern = """{\"source\":[\"aws.batch\"],
+ 					\"detail-type\":[\"Batch Job State Change\"],
+					\"detail\":{\"jobId\":[\"%s\"],\"status\":[\"FAILED\",\"SUCCEEDED\"]}}""" % job_id
 	dict_out = notification
 	dict_out["policy_number"] = dict_out["policy_number"] + 1
 
@@ -85,7 +85,7 @@ def add_notification(notification, job_id,jobName, events, sns):
 	# topic = sns.create_topic(
 	# 	Name = "job-" + notification["date_time"]
 	# 	)
-	oldAttribute = notification_rule["AttributeValue"]
+	oldAttribute = notification["AttributeValue"]
 	oldAttribute = re.sub("}]", ",", oldAttribute)
 	topicArn = notification["topicArn"]
 

@@ -1,6 +1,6 @@
 ###                                            -*- Mode: Python -*-
 ###                                            -*- coding UTF-8 -*-
-### fastqc_master.py
+### cellranger-atac_master.py
 ### Copyright 2021 RPM Bioinfo Solutions
 ### Author :  Adam-Nicolas Pelletier
 ### Last modified On: 2021-08-10
@@ -231,7 +231,7 @@ if test == False:
 		containerOverrides = {
 			"command": cmd,
 			"memory": 192000,
-			"vcpu" : 32
+			"vcpus" : 32
 		},
 		timeout = {
 			"attemptDurationSeconds": 21600
