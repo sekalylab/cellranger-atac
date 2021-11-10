@@ -106,6 +106,12 @@ reference_df = nested_batches_list(s3_file_list(reference_location, s3), 4)
 reference_source = reference_df["Source"].tolist()
 reference_df["Destination"] = [re.sub(reference_location,tmpDir + "reference", j) for j in reference_source]
 
+#EFS check
+efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
+if(efs_check == False):
+	print("Mounted EFS not found. Make sure you are connected to the front end node to launch pipeline. Exiting...")
+	sys.exit()
+
 
 #Setup file transfer if files are on S3
 if input_s3:
@@ -137,11 +143,6 @@ if input_s3:
 
 	print(df[["Source", "Batch"]].head(n = 40))	
 else :
-	efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
-	if(efs_check == False):
-		print("Local input directory not found. Make sure you are connected to the front end node to launch on EFS directly. Exiting...")
-		sys.exit()
-
 	tmpDir_abs = os.path.abspath(inputDir.rstrip(os.sep))
 	fileLS = list(Path(tmpDir_abs).rglob("*.fastq.gz$"))
 	sample_df = sample_batch(fileLS, 0, inputDir)
@@ -184,7 +185,7 @@ jobName = "s3_transfer-job-%s" % date_time
 if test == False:
 	## File Transfer launch
 	cmd = [	"bash",
-			"/mnt/pipelines/cellranger_atac/file_transfer.sh",
+			"/mnt/pipelines/cellranger-atac/file_transfer.sh",
 			"-s", s3_transfer_batch]
 
 
@@ -212,9 +213,9 @@ if test == False:
 	jobName = "cellranger-atac-count-job-%s" % date_time
 
 	cmd = ["bash", 
-			"/mnt/pipelines/cellranger_atac/cellranger-atac_count.sh",
-			"-s", cellranger_file,
-			"-r", tmpDir_abs + "/reference"]
+			"/mnt/pipelines/cellranger-atac/cellranger-atac_count.sh",
+			"-s", cellranger_batch,
+			"-r", tmpDir + "reference"]
 
 	response = client.submit_job(
 		jobName = jobName,

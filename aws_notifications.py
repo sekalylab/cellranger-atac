@@ -23,7 +23,7 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 	ruleName = "rule-" + jobName
 	notification_rule = events.put_rule(
 		Name = ruleName, 
-		EventPattern = json.dumps(event_pattern), 
+		EventPattern = json.dumps(event_pattern, indent = 4), 
 		State = "ENABLED", 
 		Description = job_id, 
 		EventBusName = "default"
@@ -47,7 +47,7 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 												"SNS:Publish",
 												"SNS:Receive"],
 									"Resource":topicArn,
-									"Condition"{"StringEquals":{"AWS:SourceOwner":"943708588556"}}},
+									"Condition":{"StringEquals":{"AWS:SourceOwner":"943708588556"}}},
 									{"Sid":"AWSEvents_" + ruleName + "_1",
 									 "Effect":"Allow",
 									"Principal":{"Service":"events.amazonaws.com"},
@@ -57,7 +57,7 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 	topic_attr = sns.set_topic_attributes(
 		TopicArn = topicArn,
 		AttributeName = "Policy",
-		AttributeValue = json.dumps(attributeValue)
+		AttributeValue = json.dumps(attributeValue, indent = 4)
 		)
 	subs = sns.subscribe(
 		TopicArn = topicArn,
@@ -70,7 +70,7 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 def add_notification(notification, job_id,jobName, events, sns):
 	event_pattern = {"source":["aws.batch"],
  					"detail-type":["Batch Job State Change"],
-					"detail":{"jobId":["job_id"],"status":["FAILED","SUCCEEDED"]}} 
+					"detail":{"jobId":[job_id],"status":["FAILED","SUCCEEDED"]}} 
 	dict_out = notification
 	dict_out["policy_number"] = dict_out["policy_number"] + 1
 
@@ -78,7 +78,7 @@ def add_notification(notification, job_id,jobName, events, sns):
 
 	notification_rule = events.put_rule(
 		Name = ruleName, 
-		EventPattern = json.dumps(event_pattern), 
+		EventPattern = json.dumps(event_pattern, indent = 4), 
 		State = "ENABLED", 
 		Description = job_id, 
 		EventBusName = "default"
@@ -88,23 +88,23 @@ def add_notification(notification, job_id,jobName, events, sns):
 
 	topicArn = notification["topicArn"]
 
-	new_attributeValue={"Sid":"AWSEvents" + ruleName + "_" + str(dict_out["policy_number"]),
+	new_attributeValue={"Sid":"AWSEvents_" + ruleName + "_1",
 					"Effect":"Allow",
 					"Principal":{"Service":"events.amazonaws.com"},
 					"Action":"sns:Publish",
 					"Resource":topicArn}
 
-	dict_out["AttributeValue"] = oldAttribute["Statement"].append(attributeValue)
-	
+	oldAttribute["Statement"].append(new_attributeValue)
+	dict_out["AttributeValue"] = oldAttribute
 	topic_attr = sns.set_topic_attributes(
 		TopicArn = topicArn,
 		AttributeName = "Policy",
-		AttributeValue = json.dumps(dict_out["AttributeValue"])
+		AttributeValue = json.dumps(dict_out["AttributeValue"], indent = 4)
 		)
 	subs = events.put_targets(
 			Rule = ruleName,
 			Targets = [{
-				'Id' : dict_out["policy_number"],
+				'Id' : "1",
 				'Arn' : topicArn
 				}]
 		)	

@@ -17,7 +17,6 @@ line_index=$(($AWS_BATCH_JOB_ARRAY_INDEX + 1))
 while read line;do
     source=$(echo $line | cut -d " " -f 1)
     dest=$(echo $line | cut -d " " -f 3)
-    cmd="aws s3 sync $source $dest" 
-    eval $cmd
+    cmd="aws s3 cp $source $dest" 
     eval $cmd
 done < <(awk -v line=$line_index -F "\t" '{ if ( $2 == line ) { print } }' $s3File)
