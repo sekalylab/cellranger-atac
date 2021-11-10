@@ -10,6 +10,7 @@
 import boto3
 import botocore
 import re
+import json
 
 
 
@@ -31,32 +32,32 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 		Name = "job-" + date_time
 		)
 	topicArn = topic["TopicArn"]
-	attributeValue='{\"Version\":\"2012-10-17\",' \
-						'\"Id\":\"__default_policy_ID\",'\
-						'\"Statement\":[{\"Sid\":\"__default_statement_ID\",' \
-										'\"Effect\":\"Allow\",' \
-										'\"Principal\":{\"AWS\":\"*\"},' \
-										'\"Action\":[\"SNS:GetTopicAttributes\",' \
-													'\"SNS:SetTopicAttributes\",' \
-													'\"SNS:AddPermission\",' \
-													'\"SNS:RemovePermission\",' \
-													'\"SNS:DeleteTopic\",' \
-													'\"SNS:Subscribe\",' \
-													'\"SNS:ListSubscriptionsByTopic\",' \
-													'\"SNS:Publish\",' \
-													'\"SNS:Receive\"],' \
-										'\"Resource\":\"' + topicArn + '\",' \
-										'\"Condition\":{\"StringEquals\":{\"AWS:SourceOwner\":\"943708588556\"}}},' \
-									'{\"Sid\":\"AWSEvents_' + ruleName + '_1\",' \
-									'\"Effect\":\"Allow\",' \
-									'\"Principal\":{\"Service\":\"events.amazonaws.com\"},' \
-									'\"Action\":\"sns:Publish\",' \
-									'\"Resource\":\"' + topicArn + '\"}]}'
+	attributeValue= {"Version":"2012-10-17",
+					"Id":"__default_policy_ID",
+					"Statement":[{	"Sid":"__default_statement_ID", 
+									"Effect":"Allow",
+									"Principal":{"AWS":"*"},
+									"Action":["SNS:GetTopicAttributes",
+												"SNS:SetTopicAttributes",
+												"SNS:AddPermission",
+												"SNS:RemovePermission",
+												"SNS:DeleteTopic",
+												"SNS:Subscribe",
+												"SNS:ListSubscriptionsByTopic",
+												"SNS:Publish",
+												"SNS:Receive"],
+									"Resource":topicArn,
+									"Condition"{"StringEquals":{"AWS:SourceOwner":"943708588556"}}},
+									{"Sid":"AWSEvents_" + ruleName + "_1",
+									 "Effect":"Allow",
+									"Principal":{"Service":"events.amazonaws.com"},
+									"Action":"sns:Publish",
+									"Resource":topicArn}]}
 	
 	topic_attr = sns.set_topic_attributes(
 		TopicArn = topicArn,
 		AttributeName = "Policy",
-		AttributeValue = attributeValue,
+		AttributeValue = json.dumps(attributeValue)
 		)
 	subs = sns.subscribe(
 		TopicArn = topicArn,
@@ -67,9 +68,9 @@ def new_notification(job_id,jobName, date_time, events, sns, email):
 
 
 def add_notification(notification, job_id,jobName, events, sns):
-	event_pattern = '{\"source\":[\"aws.batch\"],' \
- 					'\"detail-type\":[\"Batch Job State Change\"],' \
-					'\"detail\":{\"jobId\":[\"' + job_id + '\"],\"status\":[\"FAILED\",\"SUCCEEDED\"]}}' 
+	event_pattern = {"source":["aws.batch"],
+ 					"detail-type":["Batch Job State Change"],
+					"detail":{"jobId":["job_id"],"status":["FAILED","SUCCEEDED"]}} 
 	dict_out = notification
 	dict_out["policy_number"] = dict_out["policy_number"] + 1
 
@@ -82,25 +83,23 @@ def add_notification(notification, job_id,jobName, events, sns):
 		Description = job_id, 
 		EventBusName = "default"
 		)
-	# topic = sns.create_topic(
-	# 	Name = "job-" + notification["date_time"]
-	# 	)
+
 	oldAttribute = notification["AttributeValue"]
-	oldAttribute = re.sub("}]", ",", oldAttribute)
+
 	topicArn = notification["topicArn"]
 
-	attributeValue='{\"Sid\":\"AWSEvents_' + ruleName + '_' + str(dict_out["policy_number"]) + '\",' \
-					'\"Effect\":\"Allow\",' \
-					'\"Principal\":{\"Service\":\"events.amazonaws.com\"},' \
-					'\"Action\":\"sns:Publish\",' \
-					'\"Resource\":\"' + topicArn + '\"}]}'
-					
-	dict_out["AttributeValue"] = oldAttribute + attributeValue
+	new_attributeValue={"Sid":"AWSEvents" + ruleName + "_" + str(dict_out["policy_number"]),
+					"Effect":"Allow",
+					"Principal":{"Service":"events.amazonaws.com"},
+					"Action":"sns:Publish",
+					"Resource":topicArn}
+
+	dict_out["AttributeValue"] = oldAttribute["Statement"].append(attributeValue)
 	
 	topic_attr = sns.set_topic_attributes(
 		TopicArn = topicArn,
 		AttributeName = "Policy",
-		AttributeValue = oldAttribute + attributeValue
+		AttributeValue = json.dumps(dict_out["AttributeValue"])
 		)
 	subs = events.put_targets(
 			Rule = ruleName,
