@@ -14,7 +14,7 @@ import re
 
 
 
-def new_notification(job_id,jobName, date_time, events, sns, ):
+def new_notification(job_id,jobName, date_time, events, sns, email):
 	event_pattern = """{\"source\":[\"aws.batch\"],
 						\"detail-type\":[\"Batch Job State Change\"],
 						\"detail\":{\"jobId\":[\"%s\"],

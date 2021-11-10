@@ -92,7 +92,7 @@ def sample_batch(file_list, add_batches, prefix):
 	
 	df["Batch"] = pd.factorize(df["Sample"])[0]
 	df["Batch"] = df["Batch"] + 1 + add_batches
-	df["Batch"] = df["Batch"].astype(str)
+	df["Batch"] = df["Batch"]
 	return(df)
 
 

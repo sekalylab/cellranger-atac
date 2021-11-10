@@ -30,11 +30,13 @@ from aws_notifications import *
 cwd = os.path.dirname(os.path.realpath(__file__))
 
 pd.options.mode.chained_assignment = None  # default='warn
-client = boto3.client('batch', region_name="us-east-2", profile_name = "tki-aws-account-310-rhedcloud/RHEDcloudAdministratorRole")
-s3 = boto3.resource('s3', region_name="us-east-2", profile_name = "tki-aws-account-310-rhedcloud/RHEDcloudAdministratorRole")
-s3_client = boto3.client('s3', region_name="us-east-2", profile_name = "tki-aws-account-310-rhedcloud/RHEDcloudAdministratorRole")
-events = boto3.client('events', region_name="us-east-2", profile_name = "tki-aws-account-310-rhedcloud/RHEDcloudAdministratorRole")
-sns = boto3.client('sns', region_name="us-east-2", profile_name = "tki-aws-account-310-rhedcloud/RHEDcloudAdministratorRole")
+
+prof = boto3.session.Session(profile_name = "tki-aws-account-310-rhedcloud/RHEDcloudAdministratorRole")
+client = boto3.client('batch', region_name="us-east-2")
+s3 = boto3.resource('s3', region_name="us-east-2")
+s3_client = boto3.client('s3', region_name="us-east-2")
+events = boto3.client('events', region_name="us-east-2")
+sns = boto3.client('sns', region_name="us-east-2")
 
 
 parser = argparse.ArgumentParser(description="""launches the CellRanger-ATAC preprocessing pipeline""" )
@@ -183,7 +185,7 @@ if test == False:
 	## File Transfer launch
 	cmd = [	"bash",
 			"/mnt/pipelines/cellranger_atac/file_transfer.sh",
-			"-s", sampleBatch]
+			"-s", s3_transfer_batch]
 
 
 	response = client.submit_job(
@@ -203,7 +205,7 @@ if test == False:
 	)
 
 	job_id = response['jobId']
-	note = new_notification_rule(job_id, jobName, date_time, events, sns)
+	note = new_notification(job_id, jobName, date_time, events, sns, email)
 
 	### CellRanger count
 	NSAMPLE = sample_df["Batch"].max()
