@@ -16,14 +16,14 @@ import json
 
 
 def new_notification(job_id,jobName, date_time, events, sns, email):
-	event_pattern = '{\"source\":[\"aws.batch\"],' \
-						'\"detail-type\":[\"Batch Job State Change\"],' \
-						'\"detail\":{\"jobId\":[\"' + job_id +'\"],'\
-									'\"status\":[\"FAILED\",\"SUCCEEDED\"]}}'
+	event_pattern = {"source":["aws.batch"],
+						"detail-type":["Batch Job State Change"],
+						"detail":{"jobId":[job_id],
+								"status":["FAILED","SUCCEEDED"]}}
 	ruleName = "rule-" + jobName
 	notification_rule = events.put_rule(
 		Name = ruleName, 
-		EventPattern = event_pattern, 
+		EventPattern = json.dumps(event_pattern), 
 		State = "ENABLED", 
 		Description = job_id, 
 		EventBusName = "default"
@@ -78,7 +78,7 @@ def add_notification(notification, job_id,jobName, events, sns):
 
 	notification_rule = events.put_rule(
 		Name = ruleName, 
-		EventPattern = event_pattern, 
+		EventPattern = json.dumps(event_pattern), 
 		State = "ENABLED", 
 		Description = job_id, 
 		EventBusName = "default"
