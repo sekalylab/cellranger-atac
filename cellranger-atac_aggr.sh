@@ -21,6 +21,8 @@ done
 currentDate=$(date +"%Y-%m-%d %X")
 echo -ne "$currentDate: Running cellranger-atac..."
 
+cd $pathDir
+
 cmd="cellranger-atac aggr  --id=$id --reference=$reference --csv=$csv --normalize $normalize"
 
 

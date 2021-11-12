@@ -103,7 +103,8 @@ tmpDir = "/mnt/" + "tmp_ATAC_" + date_time + "/"
 tmpDir_write = re.sub("/mnt", "/mnt/efs", tmpDir)
 os.mkdir(tmpDir_write.rstrip(os.sep))
 tmpDir_abs = tmpDir_write.rstrip(os.sep)
-
+os.mkdir(tmpDir_write + "runs")
+os.mkdir(tmpDir_write + "aggregate")
 
 # Setup reference transfer 
 reference_location = "s3://patru-genomes/" + reference + "/cellranger-arc"
@@ -112,17 +113,6 @@ reference_df = nested_batches_list(s3_file_list(reference_location, s3), 4)
 reference_source = reference_df["Source"].tolist()
 reference_df["Destination"] = [re.sub(reference_location,tmpDir + "reference", j) for j in reference_source]
 
-## Metadata load
-if metadata != "":
-	metadata_path = os.path.abspath(metadata)
-
-	if len(re.sub("/mnt/efs", "", metadata_path)) == len(metadata_path):
-		print("Metadata file " + metadata_path + " is not on the EFS. Transfer metadata on EFS first and try again."  )
-		sys.exit()
-	else if os.path.isfile(metadata_path) == False:
-		print("Metadata file " + metadata_path + " does not exist. Verify path and try again."  )
-		sys.exit()
-	
 
 #EFS check
 efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
@@ -200,15 +190,16 @@ else:
 if aggregate == True:
 	aggr_df = sample_df
 	aggr_df = sample_df.drop(columns= "Batch")
-	aggr_df["path"] = re.sub("input/", "outs/", aggr_df["path"])
-	aggr_df["fragments"] = aggr_df["path"] + "fragments.tsv.gz"
-	aggr_df["cells"] = aggr_df["path"] + "singlecell.csv"
+	aggr_df['path'].replace({"input":"runs"}, regex = True, inplace=True)
+	aggr_df["path"] = aggr_df["path"] + "/outs"
+	aggr_df["fragments"] = aggr_df["path"] + "/fragments.tsv.gz"
+	aggr_df["cells"] = aggr_df["path"] + "/singlecell.csv"
 	aggr_df.rename(columns={'Sample':'library_id'}, inplace=True)
 	aggr_df = aggr_df.drop(columns = "path")
 
 	aggr_file = tmpDir_write + "aggr_csv.txt"
 	aggr_batch = re.sub("efs/", "", aggr_file)
-	aggr_df.to_csv(aggr_file, sep = ",")
+	aggr_df.to_csv(aggr_file, sep = ",", index = False)
 
 
 
@@ -278,14 +269,14 @@ if test == False:
 	note2 = add_notification(note, job_id, jobName, events, sns)
 
 ### CellRanger aggr
-	if aggregation:
+	if aggregate:
 		jobName = "cellranger-atac-aggr-job-%s" % date_time
 
 		cmd = ["bash", 
 				"/mnt/pipelines/cellranger-atac/cellranger-atac_aggr.sh",
 				"-c", aggr_batch,
 				"-r", tmpDir + "reference",
-				"-p", re.sub("efs/", "", tmpDir) + "/outs",
+				"-p", tmpDir_write + "aggregate",
 				"-i", name,
 				"-n", normalize]
 
