@@ -54,13 +54,18 @@ required.add_argument("-e","--email", required=True,
 					help="[e]mail for notifications of pipeline status (required)")
 optional.add_argument("-r", "--reference", default="GRCh38", choices=['GRCh38', 'mm10'],
 					help="[r]eference for alignment. Defaults to 'GRCh38'")
+optional.add_argument("-n", "--name", default="cellranger-ATAC-run",
+					help="[n]ame for run")
 optional.add_argument("--keep", action="store_true",
 					help="keep files on the EFS after run. Defaults to FALSE")
 optional.add_argument("--aggregate", action="store_false",
-					help="Deactivate the aggregation portion of the pipeline. Defaults to TRUE")
+					help="Deactivate the aggregation portion of the pipeline. Aggregation is performed by default.")
+
+optional.add_argument("--normalize", default="depth", choices=['depth', 'none'],
+					help="Normalization mode for aggregation step.")
+
 optional.add_argument("--test", action="store_true",
 					help="Activates test mode, which does not launch on AWS Batch. Defaults to FALSE")
-
 args = parser.parse_args()
 
 
@@ -72,6 +77,8 @@ reference = args.reference
 keep = args.keep
 aggregate = args.aggregate
 test = args.test
+normalize = args.normalize
+name = args.name
 
 ########################################################################################################################################################
 ########################################################################################################################################################
@@ -82,7 +89,6 @@ date_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 # Scan for s3 validity
 input_s3 = s3_check(inputDir, s3)
 output_s3 = s3_check(outputDir, s3)
-
 
 
 # Verify if output is a S3 location
@@ -105,6 +111,18 @@ reference_location = "s3://patru-genomes/" + reference + "/cellranger-arc"
 reference_df = nested_batches_list(s3_file_list(reference_location, s3), 4)
 reference_source = reference_df["Source"].tolist()
 reference_df["Destination"] = [re.sub(reference_location,tmpDir + "reference", j) for j in reference_source]
+
+## Metadata load
+if metadata != "":
+	metadata_path = os.path.abspath(metadata)
+
+	if len(re.sub("/mnt/efs", "", metadata_path)) == len(metadata_path):
+		print("Metadata file " + metadata_path + " is not on the EFS. Transfer metadata on EFS first and try again."  )
+		sys.exit()
+	else if os.path.isfile(metadata_path) == False:
+		print("Metadata file " + metadata_path + " does not exist. Verify path and try again."  )
+		sys.exit()
+	
 
 #EFS check
 efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
@@ -178,6 +196,23 @@ else:
 
 	
 
+### Aggregate CSV
+if aggregate == True:
+	aggr_df = sample_df
+	aggr_df = sample_df.drop(columns= "Batch")
+	aggr_df["path"] = re.sub("input/", "outs/", aggr_df["path"])
+	aggr_df["fragments"] = aggr_df["path"] + "fragments.tsv.gz"
+	aggr_df["cells"] = aggr_df["path"] + "singlecell.csv"
+	aggr_df.rename(columns={'Sample':'library_id'}, inplace=True)
+	aggr_df = aggr_df.drop(columns = "path")
+
+	aggr_file = tmpDir_write + "aggr_csv.txt"
+	aggr_batch = re.sub("efs/", "", aggr_file)
+	aggr_df.to_csv(aggr_file, sep = ",")
+
+
+
+
 NSAMPLE = df["Batch"].max()
 jobName = "s3_transfer-job-%s" % date_time
 
@@ -219,7 +254,7 @@ if test == False:
 
 	response = client.submit_job(
 		jobName = jobName,
-		jobQueue = "gsea-job-queue-3",
+		jobQueue = "single-cell-job-queue-1",
 		jobDefinition = "cellranger-atac-job-def-1",
 		arrayProperties = {
 			"size": NSAMPLE
@@ -240,4 +275,38 @@ if test == False:
 	
 	)
 	job_id = response['jobId']	
-	note = add_notification(note, job_id, jobName, events, sns)
+	note2 = add_notification(note, job_id, jobName, events, sns)
+
+### CellRanger aggr
+	if aggregation:
+		jobName = "cellranger-atac-aggr-job-%s" % date_time
+
+		cmd = ["bash", 
+				"/mnt/pipelines/cellranger-atac/cellranger-atac_aggr.sh",
+				"-c", aggr_batch,
+				"-r", tmpDir + "reference",
+				"-p", re.sub("efs/", "", tmpDir) + "/outs",
+				"-i", name,
+				"-n", normalize]
+
+		response = client.submit_job(
+			jobName = jobName,
+			jobQueue = "single-cell-job-queue-1",
+			jobDefinition = "cellranger-atac-job-def-1",
+			dependsOn = [
+						{
+							"jobId" : job_id,
+						}
+			],
+			containerOverrides = {
+				"command": cmd,
+				"memory": 192000,
+				"vcpus" : 32
+			},
+			timeout = {
+				"attemptDurationSeconds": 21600
+			}
+		
+		)
+		job_id = response['jobId']	
+		note3 = add_notification(note2, job_id, jobName, events, sns)
