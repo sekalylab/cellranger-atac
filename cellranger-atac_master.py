@@ -1,7 +1,6 @@
 ###                                            -*- Mode: Python -*-
 ###                                            -*- coding UTF-8 -*-
 ### cellranger-atac_master.py
-### Copyright 2021 RPM Bioinfo Solutions
 ### Author :  Adam-Nicolas Pelletier
 ### Last modified On: 2021-08-10
 ### Version 1.01
@@ -104,7 +103,7 @@ tmpDir_write = re.sub("/mnt", "/mnt/efs", tmpDir)
 os.mkdir(tmpDir_write.rstrip(os.sep))
 tmpDir_abs = tmpDir_write.rstrip(os.sep)
 os.mkdir(tmpDir_write + "runs")
-os.mkdir(tmpDir_write + "aggregate")
+
 
 # Setup reference transfer 
 reference_location = "s3://patru-genomes/" + reference + "/cellranger-arc"
@@ -132,8 +131,6 @@ if input_s3:
 		sys.exit()
 
 
-	print(reference_df["Batch"].max())
-
 	sample_tf_df = sample_batch(fileLS_uri , reference_df["Batch"].max(), inputDir)  ## Dataframe for transer of individual files
 
 	sample_tf_df["Destination"] = [re.sub(inputDir,tmpDir + "input/", j) for j in sample_tf_df["Source"].tolist()]
@@ -148,8 +145,6 @@ if input_s3:
 	sample_df = sample_df.drop(columns = ["Source", "Destination"]).drop_duplicates(ignore_index = True)
 
 
-
-	print(df[["Source", "Batch"]].head(n = 40))	
 else :
 	tmpDir_abs = os.path.abspath(inputDir.rstrip(os.sep))
 	fileLS = list(Path(tmpDir_abs).rglob("*.fastq.gz$"))
@@ -159,6 +154,8 @@ else :
 
 	df = reference_df
 
+
+sample_df["outputDir"] = tmpDir + "runs/"
 
 
 s3_transfer_file = tmpDir_write + "s3_transfer_batchlist.txt"
@@ -187,19 +184,17 @@ else:
 	
 
 ### Aggregate CSV
-if aggregate == True:
-	aggr_df = sample_df
-	aggr_df = sample_df.drop(columns= "Batch")
-	aggr_df['path'].replace({"input":"runs"}, regex = True, inplace=True)
-	aggr_df["path"] = aggr_df["path"] + "/outs"
-	aggr_df["fragments"] = aggr_df["path"] + "/fragments.tsv.gz"
-	aggr_df["cells"] = aggr_df["path"] + "/singlecell.csv"
-	aggr_df.rename(columns={'Sample':'library_id'}, inplace=True)
-	aggr_df = aggr_df.drop(columns = "path")
-
-	aggr_file = tmpDir_write + "aggr_csv.txt"
-	aggr_batch = re.sub("efs/", "", aggr_file)
-	aggr_df.to_csv(aggr_file, sep = ",", index = False)
+aggr_df = sample_df
+aggr_df = sample_df.drop(columns= "Batch")
+aggr_df['path'].replace({"input":"runs"}, regex = True, inplace=True)
+aggr_df["path"] = aggr_df["path"] + "/outs"
+aggr_df["fragments"] = aggr_df["path"] + "/fragments.tsv.gz"
+aggr_df["cells"] = aggr_df["path"] + "/singlecell.csv"
+aggr_df.rename(columns={'Sample':'library_id'}, inplace=True)
+aggr_df = aggr_df.drop(columns = "path")
+aggr_file = tmpDir_write + "aggr_csv.txt"
+aggr_batch = re.sub("efs/", "", aggr_file)
+aggr_df.to_csv(aggr_file, sep = ",", index = False)
 
 
 
@@ -261,7 +256,7 @@ if test == False:
 			"vcpus" : 32
 		},
 		timeout = {
-			"attemptDurationSeconds": 21600
+			"attemptDurationSeconds": 54000
 		}
 	
 	)
@@ -276,8 +271,8 @@ if test == False:
 				"/mnt/pipelines/cellranger-atac/cellranger-atac_aggr.sh",
 				"-c", aggr_batch,
 				"-r", tmpDir + "reference",
-				"-p", tmpDir_write + "aggregate",
-				"-i", name,
+				"-p", tmpDir,
+				"-i", name.rstrip(os.sep),
 				"-n", normalize]
 
 		response = client.submit_job(
@@ -295,9 +290,43 @@ if test == False:
 				"vcpus" : 32
 			},
 			timeout = {
-				"attemptDurationSeconds": 21600
+				"attemptDurationSeconds": 54000
 			}
 		
 		)
 		job_id = response['jobId']	
 		note3 = add_notification(note2, job_id, jobName, events, sns)
+
+### cleanup
+
+	jobName = "cellranger-atac-clean-job-%s" % date_time
+
+	cmd = ["bash", 
+			"/mnt/pipelines/cellranger-atac/cellranger-atac_clean.sh",
+			"-p", tmpDir,
+			"-o", output_s3,
+			"-n", name.rstrip(os.sep)]
+	if keep == True:
+		cmd.append("-k")
+
+	response = client.submit_job(
+		jobName = jobName,
+		jobQueue = "gsea-job-queue-3",
+		jobDefinition = "s3-transfer-job-def-1",
+		dependsOn = [
+					{
+						"jobId" : job_id,
+					}
+		],
+		containerOverrides = {
+			"command": cmd,
+			"memory": 32000
+		},
+		timeout = {
+			"attemptDurationSeconds": 21000
+		}
+	
+	)
+	job_id = response['jobId']	
+	note4 = add_notification(note3, job_id, jobName, events, sns)
+

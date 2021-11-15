@@ -1,7 +1,6 @@
 ###                                            -*- Mode: Python -*-
 ###                                            -*- coding UTF-8 -*-
 ### aws_notifications.py
-### Copyright 2021 RPM Bioinfo Solutions
 ### Author :  Adam-Nicolas Pelletier
 ### Last modified On: 2021-11-09
 ### Version 1.00
