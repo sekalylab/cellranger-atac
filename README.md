@@ -13,7 +13,7 @@ Contains scripts for 10X single-cell ATAC-seq preprocessing
 - AWS CLI v2
 
 ## Installation
-A Miniconda environment containing all prerequisites is already installed on the front-end. Instructions on how to access it is located [here](https://github.com/sekalylab/cellranger-atac/conda-env-setup.md)
+A Miniconda environment containing all prerequisites is already installed on the front-end. Instructions on how to access it is located [here](https://github.com/sekalylab/cellranger-atac/blob/main/conda-env-setup.md)
 This only needs to be done once per user.
 
 ## Function
@@ -33,7 +33,7 @@ Finally, a **4. Clean up** step will be performed to organize the data into a mo
 ## Usage
 #### Running the cellranger-atac pipeline
 The pipeline is already located on the EFS (/mnt/efs/pipelines/cellranger-atac/) and does NOT need to be cloned from Github on each use.
-Simply connect to the front-end [instructions here](https://github.com/sekalylab/cellranger-atac/running-on-aws.md) and launch the pipeline using the master script. 
+Simply connect to the front-end [instructions here](https://github.com/sekalylab/cellranger-atac/blob/main/running-on-aws.md) and launch the pipeline using the master script. 
 
 
 ```bash
