@@ -30,7 +30,23 @@ Unless cancelled by the *--aggregate* flag, an **3. aggregate** step will be per
 Finally, a **4. Clean up** step will be performed to organize the data into a more useful structure, upload it to a targetted S3 bucket and remove temporary files from the EFS.    
 
 
+
+
 ## Usage
+#### Directory structure
+FASTQ files must be organized in nested subfolders for each sample. This is usually how single-cell files are provided by cores. The master script will perform a check for this structure and block execution if not set up the right way.
+
+e.g. :   */mnt/efs/project_directory (or S3 URI)
+				    /Sample1
+					    /Sample1_R1.fastq.gz
+					    /Sample2_R2.fastq.gz
+					    /Sample1_I1.fastq.gz
+					    ...
+				    /Sample2
+					    /Sample2_R1.fastq.gz
+                                            /Sample2_R2.fastq.gz
+                                            /Sample2_I1.fastq.gz 
+
 #### Running the cellranger-atac pipeline
 The pipeline is already located on the EFS (/mnt/efs/pipelines/cellranger-atac/) and does NOT need to be cloned from Github on each use.
 Simply connect to the front-end [instructions here](https://github.com/sekalylab/cellranger-atac/blob/main/running-on-aws.md) and launch the pipeline using the master script. 
@@ -66,3 +82,26 @@ python /mnt/efs/pipelines/cellranger-atac/cellranger-atac_master.py \
 	 -n Ashish_p123456
 
 ```
+
+## Outputs
+The S3 output location will contain a subdirectory for each data type, with nested directories per sample.
+- raw_matrix
+- filtered_matrix
+- BED
+- BAM
+- summary (and logs)
+- fragments
+- Loupe files
+- single-cell CSVs
+- The output of the Aggregate Call
+
+This structure makes it easy to then transfer locally one file type without downloading all irrelevant files.
+
+e.g. To obtain filtered h5 matrices, you would then, locally, use TKI coupled with the command
+
+```bash 
+aws s3 sync s3://patru-user-data/Adam/my-project-outputs/filtered_matrix/ localdirectory/projectX/filtered_matrix
+``` 
+
+
+

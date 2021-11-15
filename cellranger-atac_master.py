@@ -308,6 +308,8 @@ if test == False:
 			"-n", name.rstrip(os.sep)]
 	if keep == True:
 		cmd.append("-k")
+	if aggregate == False:
+		cmd.append("-a")
 
 	response = client.submit_job(
 		jobName = jobName,

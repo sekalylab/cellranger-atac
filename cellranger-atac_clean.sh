@@ -4,15 +4,16 @@
 
 
 keep=false
-
+aggregate=true
 # read arguments
-while getopts "p:k:o:n:" option
+while getopts "p:k:o:n:a:" option
 do
     case "$option" in
     p) pathdir=$OPTARG;;
     k) keep=true;;
     o) output_bucket=$OPTARG;;
     n) name=$OPTARG;;
+    a) aggregate=false;;
     esac
 done
 
@@ -80,8 +81,10 @@ aws s3 sync summary $output_bucket/summary
 aws s3 sync fragments $output_bucket/fragments
 aws s3 sync loupe $output_bucket/loupe
 aws s3 sync single $output_bucket/singlecell
-aws s3 sync $name/outs $output_bucket/aggregate
 
+if aggregate == true; then
+    aws s3 sync $name/outs $output_bucket/aggregate
+fi
 
 if keep == false; then
     cd ..
