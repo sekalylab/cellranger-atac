@@ -29,11 +29,17 @@ echo -ne "$currentDate: Running cellranger-atac..."
 
 cd $parentDir
 
-cellranger-atac count  --id=$sampleID \
+echo "Switching to $parentDir directory..."
+
+cmd="cellranger-atac count \
+		       --id=$sampleID \
                        --reference=$reference \
                        --fastqs=$fastqDir \
                        --sample=$sampleID \
                        --localcores=32   \
-                       --localmem=185
+                       --localmem=185"
 
+echo $cmd
+
+eval $cmd
 echo "done"

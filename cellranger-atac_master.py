@@ -19,8 +19,9 @@ from pathlib import Path
 from datetime import datetime
 from glob import glob
 import builtins
-from s3_transfer_functions import *
-from aws_notifications import *
+import shutil
+from aws_utils_patru.aws_notifications import *
+from aws_utils_patru.s3_transfer import *
 
 ########################################################################################################################################################
 ########################################################## USER INPUT  AND OUTPUT ######################################################################
@@ -44,11 +45,10 @@ required = parser.add_argument_group('required arguments')
 optional = parser.add_argument_group('optional arguments')
 
 
-
 required.add_argument("-i","--input", required=True,
 					help="[i]nput location of files to transfer: can be a S3 bucket or a local absolute path on an EC2 instance (required)")
 required.add_argument("-o","--output", required=True,
-					help="[o]utput location of files to transfer: can be a S3 bucket or a local absolute path on an EC2 instance (required)")
+					help="[o]utput S3 bucket for file cleanup")
 required.add_argument("-e","--email", required=True,
 					help="[e]mail for notifications of pipeline status (required)")
 optional.add_argument("-r", "--reference", default="GRCh38", choices=['GRCh38', 'mm10'],
@@ -57,7 +57,7 @@ optional.add_argument("-n", "--name", default="cellranger-ATAC-run",
 					help="[n]ame for run")
 optional.add_argument("--keep", action="store_true",
 					help="keep files on the EFS after run. Defaults to FALSE")
-optional.add_argument("--aggregate", action="store_false",
+optional.add_argument("--no_aggregate", action="store_true",
 					help="Deactivate the aggregation portion of the pipeline. Aggregation is performed by default.")
 
 optional.add_argument("--normalize", default="depth", choices=['depth', 'none'],
@@ -65,6 +65,12 @@ optional.add_argument("--normalize", default="depth", choices=['depth', 'none'],
 
 optional.add_argument("--test", action="store_true",
 					help="Activates test mode, which does not launch on AWS Batch. Defaults to FALSE")
+optional.add_argument("--reanalyze_params", default="docs/reanalyze_parameters.csv",
+                                        help="Provide a customized parameter csv file for the reanalyze portion of the pipeline.")
+
+
+
+
 args = parser.parse_args()
 
 
@@ -74,11 +80,11 @@ outputDir = args.output
 email = args.email
 reference = args.reference
 keep = args.keep
-aggregate = args.aggregate
+no_aggregate = args.no_aggregate
 test = args.test
 normalize = args.normalize
 name = args.name
-
+reanalyze = args.reanalyze_params
 ########################################################################################################################################################
 ########################################################################################################################################################
 pd.options.display.max_colwidth = 150
@@ -146,14 +152,15 @@ if input_s3:
 
 
 else :
-	tmpDir_abs = os.path.abspath(inputDir.rstrip(os.sep))
-	fileLS = list(Path(tmpDir_abs).rglob("*.fastq.gz$"))
+	inputDir_abs = os.path.abspath(inputDir.rstrip(os.sep))
+	fileLS = list(Path(inputDir_abs).rglob("*.fastq.gz$"))
 	sample_df = sample_batch(fileLS, 0, inputDir)
 	sample_df["path"] = [os.path.dirname(j) for j in sample_df["Source"].tolist()] 
 	sample_df = sample_df.drop(columns= "Source").drop_duplicates(ignore_index = True)
 
 	df = reference_df
 
+shutil.copy2(os.path.abspath(reanalyze), tmpDir_write + "reanalyze_params.csv")
 
 sample_df["outputDir"] = tmpDir + "runs/"
 
@@ -166,6 +173,8 @@ cellranger_file = tmpDir_write + "cellranger_atac_batch.txt"
 cellranger_batch = re.sub("efs/", "", cellranger_file)
 
 sample_df.to_csv(cellranger_file, sep = "\t", index = False, header = False)
+
+
 
 
 
@@ -191,10 +200,11 @@ aggr_df["path"] = aggr_df["path"] + "/outs"
 aggr_df["fragments"] = aggr_df["path"] + "/fragments.tsv.gz"
 aggr_df["cells"] = aggr_df["path"] + "/singlecell.csv"
 aggr_df.rename(columns={'Sample':'library_id'}, inplace=True)
-aggr_df = aggr_df.drop(columns = "path")
+aggr_df = aggr_df.drop(columns = ["path", "outputDir"])
 aggr_file = tmpDir_write + "aggr_csv.txt"
 aggr_batch = re.sub("efs/", "", aggr_file)
 aggr_df.to_csv(aggr_file, sep = ",", index = False)
+
 
 
 
@@ -203,7 +213,7 @@ NSAMPLE = df["Batch"].max()
 jobName = "s3_transfer-job-%s" % date_time
 
 
-if test == False:
+if test is False:
 	## File Transfer launch
 	cmd = [	"bash",
 			"/mnt/pipelines/cellranger-atac/file_transfer.sh",
@@ -264,7 +274,7 @@ if test == False:
 	note2 = add_notification(note, job_id, jobName, events, sns)
 
 ### CellRanger aggr
-	if aggregate:
+	if no_aggregate is False:
 		jobName = "cellranger-atac-aggr-job-%s" % date_time
 
 		cmd = ["bash", 
@@ -273,7 +283,8 @@ if test == False:
 				"-r", tmpDir + "reference",
 				"-p", tmpDir,
 				"-i", name.rstrip(os.sep),
-				"-n", normalize]
+				"-n", normalize,
+				"a", tmpDir + "reanalyze_params.csv"]
 
 		response = client.submit_job(
 			jobName = jobName,
@@ -304,11 +315,11 @@ if test == False:
 	cmd = ["bash", 
 			"/mnt/pipelines/cellranger-atac/cellranger-atac_clean.sh",
 			"-p", tmpDir,
-			"-o", output_s3,
+			"-o", outputDir,
 			"-n", name.rstrip(os.sep)]
-	if keep == True:
+	if keep:
 		cmd.append("-k")
-	if aggregate == False:
+	if no_aggregate:
 		cmd.append("-a")
 
 	response = client.submit_job(

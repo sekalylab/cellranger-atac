@@ -7,14 +7,14 @@ Contains scripts for 10X single-cell ATAC-seq preprocessing
 <!-- badges: end -->
 
 ## Dependencies
+A Conda environment has been setup for all users to give access to dependencies and should be active by default upon login. 
+
 - Python (version 3.9.0)
     - boto3
     - pandas
 - AWS CLI v2
 
-## Installation
-A Miniconda environment containing all prerequisites is already installed on the front-end. Instructions on how to access it is located [here](https://github.com/sekalylab/cellranger-atac/blob/main/conda-env-setup.md)
-This only needs to be done once per user.
+
 
 ## Function
 
@@ -36,6 +36,7 @@ Finally, a **4. Clean up** step will be performed to organize the data into a mo
 #### Directory structure
 FASTQ files must be organized in nested subfolders for each sample. This is usually how single-cell files are provided by cores. The master script will perform a check for this structure and block execution if not set up the right way.
 
+```bash
 e.g. :   */mnt/efs/project_directory (or S3 URI)
 				    /Sample1
 					    /Sample1_R1.fastq.gz
@@ -46,10 +47,11 @@ e.g. :   */mnt/efs/project_directory (or S3 URI)
 					    /Sample2_R1.fastq.gz
                                             /Sample2_R2.fastq.gz
                                             /Sample2_I1.fastq.gz 
+```
 
 #### Running the cellranger-atac pipeline
 The pipeline is already located on the EFS (/mnt/efs/pipelines/cellranger-atac/) and does NOT need to be cloned from Github on each use.
-Simply connect to the front-end [instructions here](https://github.com/sekalylab/cellranger-atac/blob/main/running-on-aws.md) and launch the pipeline using the master script. 
+Simply connect to the front-end [instructions here](https://github.com/sekalylab/cellranger-atac/blob/main/docs/running-on-aws.md) and launch the pipeline using the master script. 
 
 
 ```bash
@@ -63,10 +65,10 @@ Required arguments:
 Optional arguments:
 -r; --reference = [r]eference for alignment. Defaults to 'GRCh38'. Choices are 'GRCh38' and 'mm10'
 -n;--name = [n]ame for run. Will be used to produce files with a distinctive name. Otherwise a generic name will be made
---aggregate = Deactivate the aggregation portion of the pipeline. Aggregation is performed by default.
+--noaggregate = Deactivate the aggregation portion of the pipeline. Aggregation is performed by default.
 --normalize = Normalization mode for aggregation step. Choices are 'depth' and 'none'; default is 'depth'. 
 --keep = Does not delete the files on the EFS after run completion. 
-
+--reanalyze_params = Provide a customized parameter csv file for the reanalyze portion of the pipeline. See the [cellranger-atac reanalyze](https://support.10xgenomics.com/single-cell-atac/software/pipelines/latest/using/reanalyze) page for more details. 
 ```
 
 

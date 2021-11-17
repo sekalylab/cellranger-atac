@@ -18,5 +18,6 @@ while read line;do
     source=$(echo $line | cut -d " " -f 1)
     dest=$(echo $line | cut -d " " -f 3)
     cmd="aws s3 cp $source $dest" 
+    echo $cmd
     eval $cmd
 done < <(awk -v line=$line_index -F "\t" '{ if ( $2 == line ) { print } }' $s3File)
