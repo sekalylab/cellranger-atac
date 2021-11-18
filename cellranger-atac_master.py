@@ -183,14 +183,18 @@ sample_df.to_csv(cellranger_file, sep = "\t", index = False, header = False)
 print(sample_df)
 print("\n\nDataset contains " + str(len(sample_df["Sample"].tolist())) + " samples:" )
 #print(list(sample_dict.keys()))
-inp = input("\n\nContinue ? (y/n) :  ")
-print(inp)
-if inp.upper() == "Y":
-	pass
-else:
-	sys.exit()
 
-	
+prompt_check = False
+while prompt_check is False:
+	inp = input("\n\nContinue ? (y/n) :  ")
+	print(inp)
+	if inp.upper() == "Y":
+		prompt_check = True
+	elif inp.upper != "N":
+		print("Invalid answer\n")
+	else:
+		sys.exit()
+
 
 ### Aggregate CSV
 aggr_df = sample_df
@@ -284,7 +288,7 @@ if test is False:
 				"-p", tmpDir,
 				"-i", name.rstrip(os.sep),
 				"-n", normalize,
-				"a", tmpDir + "reanalyze_params.csv"]
+				"-a", tmpDir + "reanalyze_params.csv"]
 
 		response = client.submit_job(
 			jobName = jobName,

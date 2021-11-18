@@ -84,6 +84,7 @@ aws s3 sync single $output_bucket/singlecell
 
 if aggregate == true; then
     aws s3 sync $name/outs $output_bucket/aggregate
+    aws s3 sync $name_reanalyze/outs $output_bucket/reanalyze
 fi
 
 if keep == false; then

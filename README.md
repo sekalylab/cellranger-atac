@@ -9,7 +9,7 @@ Contains scripts for 10X single-cell ATAC-seq preprocessing
 ## Dependencies
 A Conda environment has been setup for all users to give access to dependencies and should be active by default upon login. 
 
-- Python (version 3.9.0)
+- Python (version 3.9.5)
     - boto3
     - pandas
 - AWS CLI v2
@@ -25,7 +25,7 @@ Files can be supplied on the mounted EFS of the Sekaly lab, or by providing a S3
 
 Files will first be **1.transferred** to the EFS automatically to a temporary directory, **including the specified reference**, followed by **2.alignment/counting**.
 
-Unless cancelled by the *--aggregate* flag, an **3. aggregate** step will be performed to combine all samples into a single dataset, including a Loupe Browser file. 
+Unless cancelled by the *--aggregate* flag, an **3. aggregate** step will be performed to combine all samples into a single dataset, including a Loupe Browser file. This also includes a secondary analysis (dimension reduction,clustering, differential peak enrichment) on either ALL cells if n < 100000, or a random subsample of 100k cells.  
 
 Finally, a **4. Clean up** step will be performed to organize the data into a more useful structure, upload it to a targetted S3 bucket and remove temporary files from the EFS.    
 
@@ -68,9 +68,9 @@ Optional arguments:
 --noaggregate = Deactivate the aggregation portion of the pipeline. Aggregation is performed by default.
 --normalize = Normalization mode for aggregation step. Choices are 'depth' and 'none'; default is 'depth'. 
 --keep = Does not delete the files on the EFS after run completion. 
---reanalyze_params = Provide a customized parameter csv file for the reanalyze portion of the pipeline. See the [cellranger-atac reanalyze](https://support.10xgenomics.com/single-cell-atac/software/pipelines/latest/using/reanalyze) page for more details. 
+--reanalyze_params = Provide a customized parameter csv file for the reanalyze portion of the pipeline. 
 ```
-
+By default, the pipeline will aggregate ALL cells, but will perform differential enrichment on 100k cells as specified in the [params file](https://github.com/sekalylab/cellranger-atac/blob/main/docs/reanalyze_parameters.csv). If you wish to further tailor the secondary analysis, provide your own csv file as defined in the documentation of [cellranger-atac reanalyze](https://support.10xgenomics.com/single-cell-atac/software/pipelines/latest/using/reanalyze)
 
 Example call :
 
