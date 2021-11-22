@@ -40,7 +40,6 @@ do
     mv runs/${sample}/outs/*.bam bam/${sample}/
     mv runs/${sample}/outs/*.bai bam/${sample}/
 
-
     mkdir -p filtered_matrix/$sample
     mv runs/${sample}/outs/filtered*.h5 filtered_matrix/${sample}/
 
@@ -49,19 +48,15 @@ do
 
     mkdir -p bed/$sample
     mv runs/${sample}/outs/*.bed bed/${sample}/
-    
 
     mkdir -p fragments/$sample
     mv runs/${sample}/outs/fragments* fragments/${sample}/
 
-
     mkdir -p loupe/$sample
     mv runs/${sample}/outs/cloupe.cloupe loupe/${sample}/cloupe.cloupe
 
-
     mkdir -p singlecell/$sample
     mv runs/${sample}/outs/singlecell.csv singlecell/${sample}/singlecell.csv
-    
 
     mkdir -p summary/$sample
     mv runs/${sample}/outs/analysis/ summary/${sample}/analysis/
@@ -73,7 +68,7 @@ do
 done
 
 
-aws s3 sync bam $output_bucket/bam
+#aws s3 sync bam $output_bucket/bam
 aws s3 sync filtered_matrix $output_bucket/filtered_matrix
 aws s3 sync raw_matrix $output_bucket/raw_matrix
 aws s3 sync bed $output_bucket/bed
@@ -82,14 +77,17 @@ aws s3 sync fragments $output_bucket/fragments
 aws s3 sync loupe $output_bucket/loupe
 aws s3 sync single $output_bucket/singlecell
 
-if aggregate == true; then
-    aws s3 sync $name/outs $output_bucket/aggregate
-    aws s3 sync $name_reanalyze/outs $output_bucket/reanalyze
+if $aggregate; then
+    aws s3 sync ${name}/outs $output_bucket/aggregate
+    aws s3 sync ${name}_reanalyze/outs $output_bucket/reanalyze
 fi
 
-if keep == false; then
+if $keep; then
     cd ..
-    rm -R pathdir
+    mv $pathdir /mnt/${name}
+    chmod -R 777 /mnt/${name}
+else
+    cd ..
+    rm -R $pathdir
 fi
-
 

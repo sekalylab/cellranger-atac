@@ -75,8 +75,8 @@ By default, the pipeline will aggregate ALL cells, but will perform differential
 Example call :
 
 ```bash 
-
-python /mnt/efs/pipelines/cellranger-atac/cellranger-atac_master.py \
+cd /mnt/efs/pipelines/cellranger-atac
+python cellranger-atac_master.py \
 	 -i s3://patru-emory-genomics-uploads/test-data/ \
 	 -o s3://patru-users/userName/test-data \
 	 -e slim.fourati@emory.edu \
@@ -84,6 +84,9 @@ python /mnt/efs/pipelines/cellranger-atac/cellranger-atac_master.py \
 	 -n Ashish_p123456
 
 ```
+#### Special parameters
+If you need to make a call that uses the more niche parameters (memory, count parameters, etc), you can still clone/copy the whole git repository to another directory, modify those bash scripts accordingly and launch it from there. I would recommend you use the --keep flag just in case.
+ 
 
 ## Outputs
 The S3 output location will contain a subdirectory for each data type, with nested directories per sample.

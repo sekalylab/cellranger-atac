@@ -95,13 +95,29 @@ date_time = datetime.now().strftime("%Y%m%d_%H%M%S")
 input_s3 = s3_check(inputDir, s3)
 output_s3 = s3_check(outputDir, s3)
 
-
 # Verify if output is a S3 location
 if output_s3:
 	pass
 else:
 	print("Invalid output location. Specify a valid S3 location. Aborting...")
 	sys.exit()
+
+#EFS check
+efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
+if(efs_check == False):
+        print("Mounted EFS not found. Make sure you are connected to the front end node to launch pipeline. Exiting...")
+        sys.exit()
+
+def exit_strategy(dir):
+	shutil.rmtree(dir)
+	sys.exit()
+
+#Check script directory
+scriptLS = ["file_transfer.sh","cellranger-atac_count.sh", "cellranger-atac_aggr.sh", "cellranger-atac_clean.sh"]
+script_check = all(item in os.listdir() for item in scriptLS)
+if script_check is False:
+        print("Not all expected scripts found in the current directory. Make sure to launch the pipeline from `/mnt/efs/pipelines/cellranger-atac` or a from the directory of a complete copy. ")
+        sys.exit()
 
 #Create temporary directory
 tmpDir = "/mnt/" + "tmp_ATAC_" + date_time + "/"
@@ -110,6 +126,10 @@ os.mkdir(tmpDir_write.rstrip(os.sep))
 tmpDir_abs = tmpDir_write.rstrip(os.sep)
 os.mkdir(tmpDir_write + "runs")
 
+#Copy scripts
+tmp_script_write =  tmpDir_write + "scripts/"
+shutil.copytree(os.getcwd(), tmp_script_write)
+tmp_script = re.sub("efs/", "", tmp_script_write)
 
 # Setup reference transfer 
 reference_location = "s3://patru-genomes/" + reference + "/cellranger-arc"
@@ -118,24 +138,21 @@ reference_df = nested_batches_list(s3_file_list(reference_location, s3), 4)
 reference_source = reference_df["Source"].tolist()
 reference_df["Destination"] = [re.sub(reference_location,tmpDir + "reference", j) for j in reference_source]
 
-
-#EFS check
-efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
-if(efs_check == False):
-	print("Mounted EFS not found. Make sure you are connected to the front end node to launch pipeline. Exiting...")
-	sys.exit()
-
+## Name check
+mntLS = [f for f in os.listdir("/mnt/efs") if os.path.isdir(os.path.join("/mnt/efs", f))]
+if keep is True or test is True:
+	if name in mntLS:
+		print("A directory called %s is already located on the mounted EFS. Double-check if it's not a duplicate or name run differently. Aborting..." % name)
+		exit_strategy(tmpDir_write) 
 
 #Setup file transfer if files are on S3
 if input_s3:
 	fileLS_uri = s3_file_list(inputDir, s3)
 	reg = re.compile('fastq.gz$')
 	fileLS_uri = [i for i in fileLS_uri if re.search(reg, i)]
-	#fileLS = [i for i in fileLS_uri if re.search(reg, i)]
 	if len(fileLS_uri) == 0:
 		print("There are no fastqs in the specified URI. Try again. Exiting...")
-		sys.exit()
-
+		exit_strategy(tmpDir_write)
 
 	sample_tf_df = sample_batch(fileLS_uri , reference_df["Batch"].max(), inputDir)  ## Dataframe for transer of individual files
 
@@ -160,7 +177,7 @@ else :
 
 	df = reference_df
 
-shutil.copy2(os.path.abspath(reanalyze), tmpDir_write + "reanalyze_params.csv")
+shutil.copy2(os.path.abspath(reanalyze), tmpDir_write + "reanalyze_parameters.csv")
 
 sample_df["outputDir"] = tmpDir + "runs/"
 
@@ -193,7 +210,7 @@ while prompt_check is False:
 	elif inp.upper != "N":
 		print("Invalid answer\n")
 	else:
-		sys.exit()
+		exit_strategy(tmpDir_write)
 
 
 ### Aggregate CSV
@@ -216,11 +233,10 @@ aggr_df.to_csv(aggr_file, sep = ",", index = False)
 NSAMPLE = df["Batch"].max()
 jobName = "s3_transfer-job-%s" % date_time
 
-
 if test is False:
 	## File Transfer launch
 	cmd = [	"bash",
-			"/mnt/pipelines/cellranger-atac/file_transfer.sh",
+			tmp_script + "file_transfer.sh",
 			"-s", s3_transfer_batch]
 
 
@@ -248,7 +264,7 @@ if test is False:
 	jobName = "cellranger-atac-count-job-%s" % date_time
 
 	cmd = ["bash", 
-			"/mnt/pipelines/cellranger-atac/cellranger-atac_count.sh",
+			tmp_script + "cellranger-atac_count.sh",
 			"-s", cellranger_batch,
 			"-r", tmpDir + "reference"]
 
@@ -282,13 +298,13 @@ if test is False:
 		jobName = "cellranger-atac-aggr-job-%s" % date_time
 
 		cmd = ["bash", 
-				"/mnt/pipelines/cellranger-atac/cellranger-atac_aggr.sh",
+				tmp_script + "cellranger-atac_aggr.sh",
 				"-c", aggr_batch,
 				"-r", tmpDir + "reference",
 				"-p", tmpDir,
 				"-i", name.rstrip(os.sep),
 				"-n", normalize,
-				"-a", tmpDir + "reanalyze_params.csv"]
+				"-a", tmpDir + "reanalyze_parameters.csv"]
 
 		response = client.submit_job(
 			jobName = jobName,
@@ -317,9 +333,9 @@ if test is False:
 	jobName = "cellranger-atac-clean-job-%s" % date_time
 
 	cmd = ["bash", 
-			"/mnt/pipelines/cellranger-atac/cellranger-atac_clean.sh",
+			tmp_script + "cellranger-atac_clean.sh",
 			"-p", tmpDir,
-			"-o", outputDir,
+			"-o", outputDir.rstrip("/"),
 			"-n", name.rstrip(os.sep)]
 	if keep:
 		cmd.append("-k")
@@ -347,3 +363,8 @@ if test is False:
 	job_id = response['jobId']	
 	note4 = add_notification(note3, job_id, jobName, events, sns)
 
+
+	print("Pipeline launched succesfully!")
+
+elif test is True:
+	os.rename(tmpDir_write, "/mnt/efs/"+ name)
