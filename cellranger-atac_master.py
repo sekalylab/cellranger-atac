@@ -105,8 +105,8 @@ else:
 #EFS check
 efs_check = os.path.isfile("/mnt/efs/pipelines/efs_check.txt")
 if(efs_check == False):
-        print("Mounted EFS not found. Make sure you are connected to the front end node to launch pipeline. Exiting...")
-        sys.exit()
+	print("Mounted EFS not found. Make sure you are connected to the front end node to launch pipeline. Exiting...")
+	sys.exit()
 
 def exit_strategy(dir):
 	shutil.rmtree(dir)
@@ -170,9 +170,17 @@ if input_s3:
 
 else :
 	inputDir_abs = os.path.abspath(inputDir.rstrip(os.sep))
-	fileLS = list(Path(inputDir_abs).rglob("*.fastq.gz$"))
+	fileLS = []
+	for (dirpath, dirnames, filenames) in os.walk(inputDir_abs):
+		fileLS += [os.path.join(dirpath, file) for file in filenames]
+	reg = re.compile('fastq.gz$')
+	fileLS =  [i for i in fileLS if re.search(reg, i)]
+	if len(fileLS_uri) == 0:
+		print("There are no fastqs in the specified directory. Try again. Exiting...")
+		sys.exit()
 	sample_df = sample_batch(fileLS, 0, inputDir)
-	sample_df["path"] = [os.path.dirname(j) for j in sample_df["Source"].tolist()] 
+	sample_df["path"] = [os.path.dirname(j) for j in sample_df["Source"].tolist()]
+	sample_df["path"] = sample_df["path"].str.replace("efs/", "") 
 	sample_df = sample_df.drop(columns= "Source").drop_duplicates(ignore_index = True)
 
 	df = reference_df
@@ -207,10 +215,10 @@ while prompt_check is False:
 	print(inp)
 	if inp.upper() == "Y":
 		prompt_check = True
-	elif inp.upper != "N":
-		print("Invalid answer\n")
-	else:
+	elif inp.upper() == "N":
 		exit_strategy(tmpDir_write)
+	else:
+		print("Invalid answer\n")
 
 
 ### Aggregate CSV
@@ -337,9 +345,9 @@ if test is False:
 			"-p", tmpDir,
 			"-o", outputDir.rstrip("/"),
 			"-n", name.rstrip(os.sep)]
-	if keep:
+	if keep is True:
 		cmd.append("-k")
-	if no_aggregate:
+	if no_aggregate is True:
 		cmd.append("-a")
 
 	response = client.submit_job(
@@ -360,8 +368,11 @@ if test is False:
 		}
 	
 	)
-	job_id = response['jobId']	
-	note4 = add_notification(note3, job_id, jobName, events, sns)
+	job_id = response['jobId']
+	if no_aggregate is True:
+		note3 = add_notification(note2, job_id, jobName, events, sns)
+	else:
+		note4 = add_notification(note3, job_id, jobName, events, sns)
 
 
 	print("Pipeline launched succesfully!")

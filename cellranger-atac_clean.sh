@@ -69,17 +69,35 @@ done
 
 
 #aws s3 sync bam $output_bucket/bam
-aws s3 sync filtered_matrix $output_bucket/filtered_matrix
-aws s3 sync raw_matrix $output_bucket/raw_matrix
-aws s3 sync bed $output_bucket/bed
-aws s3 sync summary $output_bucket/summary
-aws s3 sync fragments $output_bucket/fragments
-aws s3 sync loupe $output_bucket/loupe
-aws s3 sync single $output_bucket/singlecell
+cmd="aws s3 sync filtered_matrix $output_bucket/filtered_matrix"
+echo $cmd
+eval $cmd
+cmd="aws s3 sync raw_matrix $output_bucket/raw_matrix"
+echo $cmd
+eval $cmd
+cmd="aws s3 sync bed $output_bucket/bed"
+echo $cmd
+eval $cmd
+cmd="aws s3 sync summary $output_bucket/summary"
+echo $cmd
+eval $cmd
+cmd="aws s3 sync fragments $output_bucket/fragments"
+echo $cmd
+eval $cmd
+cmd="aws s3 sync loupe $output_bucket/loupe"
+echo $cmd
+eval $cmd
+cmd="aws s3 sync single $output_bucket/singlecell"
+echo $cmd
+eval $cmd
 
 if $aggregate; then
-    aws s3 sync ${name}/outs $output_bucket/aggregate
-    aws s3 sync ${name}_reanalyze/outs $output_bucket/reanalyze
+    cmd="aws s3 sync ${name}/outs $output_bucket/aggregate"
+    echo $cmd
+    eval $cmd
+    cmd="aws s3 sync ${name}_reanalyze/outs $output_bucket/reanalyze"
+    echo $cmd
+    eval $cmd
 fi
 
 if $keep; then
